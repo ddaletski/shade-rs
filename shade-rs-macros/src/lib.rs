@@ -1,8 +1,21 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse_macro_input;
 use syn::visit::Visit;
-use syn::ItemFn;
+use syn::{ItemFn, Pat, Type};
+
+struct Types {}
+
+impl Types {
+    fn get(rust_type: &str) -> &'static str {
+        match rust_type {
+            "Float" => "float",
+            "Float2" => "vec2",
+            "Float3" => "vec3",
+            "Float4" => "vec4",
+            _ => unreachable!(),
+        }
+    }
+}
 
 struct FnVisitor {
     code: String,
@@ -14,15 +27,28 @@ impl<'ast> Visit<'ast> for FnVisitor {
     }
 
     fn visit_local(&mut self, i: &'ast syn::Local) {
-        self.code.push_str("TYPE ");
-        self.visit_pat(&i.pat);
+        if let Pat::Type(type_pattern) = &i.pat {
+            if let Type::Path(path) = &*type_pattern.ty {
+                let rust_type = path.path.segments.last().unwrap().ident.to_string();
+                let glsl_type = Types::get(&rust_type);
+                self.code.push_str(glsl_type);
+                self.code.push_str(" ");
+            } else {
+                panic!("unknown variable type");
+            }
+
+            syn::visit::visit_pat(self, &type_pattern.pat);
+        } else {
+            panic!(
+                "Unsupported variable initializtion syntax: {:?}. Should be 'let var_name: VarType = ...'",
+                quote! {#i}.to_string(),
+            )
+        }
 
         if let Some((_, expr)) = &i.init {
             self.code.push_str(" = ");
             self.visit_expr(&expr);
         }
-
-        self.code.push_str(";\n");
     }
 
     fn visit_expr_call(&mut self, i: &'ast syn::ExprCall) {
@@ -92,7 +118,7 @@ impl FnVisitor {
 
 #[proc_macro_attribute]
 pub fn fragment_shader(_attr: TokenStream, function: TokenStream) -> TokenStream {
-    let function = parse_macro_input!(function as ItemFn);
+    let function = syn::parse::<ItemFn>(function).unwrap();
 
     let fun_name = format_ident!("{}", function.sig.ident.to_string());
 
