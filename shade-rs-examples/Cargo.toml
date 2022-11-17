@@ -1,0 +1,7 @@
+[package]
+name = "shade-rs-examples"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shade-rs = { version = "0.1.0", path = "../shade-rs-macros" }
