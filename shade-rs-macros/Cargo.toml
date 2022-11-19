@@ -9,8 +9,5 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-colored = "2.0.0"
-prettyplease = "0.1.21"
-proc-macro2 = { version = "1.0.47", features = ["span-locations"] }
 quote = "1.0.21"
 syn = { version = "1.0.103", features = ["full", "extra-traits", "visit"] }

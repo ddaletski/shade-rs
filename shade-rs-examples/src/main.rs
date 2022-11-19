@@ -1,29 +1,62 @@
 mod glsl {
-    pub fn concat<T>(v1: [T; 2], v2: [T; 2]) -> [T; 4]
-    where
-        T: Copy,
-    {
-        [v1[0], v1[1], v2[0], v2[1]]
+    use std::ops::{Add, AddAssign};
+
+    type Scalar<T, const N: usize> = [T; N];
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct Float4(Scalar<f32, 4>);
+    impl From<Scalar<f32, 4>> for Float4 {
+        fn from(val: Scalar<f32, 4>) -> Self {
+            Self(val)
+        }
     }
 
-    pub type Float4 = [f32; 4];
     pub type Float = f32;
 
     pub fn float4(x: f32, y: f32, z: f32, w: f32) -> Float4 {
-        [x, y, z, w]
+        [x, y, z, w].into()
     }
 
-    pub fn sin(val: f32) -> f32 {
+    pub fn sin(val: Float) -> Float {
         val
+    }
+
+
+    impl AddAssign for Float4 {
+        fn add_assign(&mut self, rhs: Self) {
+            self.0[0] += rhs.0[0];
+            self.0[1] += rhs.0[1];
+            self.0[2] += rhs.0[2];
+            self.0[3] += rhs.0[3];
+        }
+    }
+
+    impl Add for Float4 {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            let mut result = self;
+            result += rhs;
+            result
+        }
     }
 }
 
-use glsl::{float4, sin};
+use glsl::{float4, sin, Float, Float4};
 
 #[shade_rs::fragment_shader]
 fn fragment() -> &'static str {
-    let mut x: glsl::Float4 = float4(0.0, 1.0, 2.0, 3.0);
-    let y: glsl::Float = sin(10.0);
+    let a: Float4 = float4(1.0, 2.0, 3.0, 4.0);
+    let mut x: Float4 = float4(0.0, 1.0, 2.0, 3.0);
+    let mut y: Float = sin(10.0);
+
+    x = x + a;
+
+    for i in 1..10 {
+        y += 1.0;
+    }
+
+    x += x;
 }
 
 fn main() {
