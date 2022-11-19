@@ -1,4 +1,5 @@
 #![feature(iter_intersperse)]
+#![feature(proc_macro_diagnostic)]
 
 mod code_utils;
 mod convenience_wrap;

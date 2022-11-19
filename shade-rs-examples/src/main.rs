@@ -44,6 +44,9 @@ mod glsl {
 
 use glsl::{float4, sin, Float, Float4};
 
+fn call() {
+}
+
 #[shade_rs::fragment_shader]
 fn fragment() -> &'static str {
     let a: Float4 = float4(1.0, 2.0, 3.0, 4.0);
@@ -55,6 +58,8 @@ fn fragment() -> &'static str {
     for i in 1..10 {
         y += 1.0;
     }
+
+    call();
 
     x += x;
 }

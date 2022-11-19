@@ -2,11 +2,21 @@ use crate::code_utils::{rebuild_code, Indentable};
 use crate::convenience_wrap::ConvenienceWrap;
 use crate::mapper::Mapper;
 use quote::ToTokens;
+use syn::spanned::Spanned;
 use syn::visit::Visit;
-use syn::{Expr, ItemFn, Pat, Type};
+use syn::{Expr, ItemFn, Pat, Stmt, Type};
 
 pub struct ShaderFnParser {
     pub code: String,
+}
+
+macro_rules! parsing_error {
+    ($tree:expr, $($fmt_args:expr),+) => {
+        let msg = format!($($fmt_args),*);
+        let span = $tree.span().unwrap();
+        span.error(msg).emit();
+        unreachable!();
+    };
 }
 
 impl ConvenienceWrap for ShaderFnParser {}
@@ -27,18 +37,16 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
             self.visit_pat(&type_pattern.pat);
         } else {
-            panic!(
-                "Unsupported variable initializtion syntax: {:?}. Should be 'let var_name: VarType = ...'",
-                rebuild_code(&i)
-            )
+            parsing_error!(
+                i.pat,
+                "Unsupported variable initializtion syntax. Should be 'let [mut] var_name: VarType = ...'"
+            );
         }
 
         if let Some((_, expr)) = &i.init {
             self.code.push_str(" = ");
             self.visit_expr(&expr);
         }
-
-        self.code.push_str(";\n");
     }
 
     fn visit_type(&mut self, i: &'ast Type) {
@@ -47,7 +55,7 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
             let glsl_type = Mapper::translate_type(&rust_type);
             self.code.push_str(glsl_type);
         } else {
-            panic!("unknown variable type");
+            parsing_error!(i, "unknown variable type");
         }
     }
 
@@ -71,14 +79,14 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
     fn visit_expr_for_loop(&mut self, i: &'ast syn::ExprForLoop) {
         let Expr::Range(rng) = &*i.expr else {
-            panic!("unsupported loop range syntax: {} ({})", rebuild_code(&i), rebuild_code(&i.expr));
+            parsing_error!(i.expr, "unsupported loop iterator. Expected range object (a..b | a..=b)");
         };
 
         let left = rebuild_code(&rng.from.as_ref().unwrap());
         let right = rebuild_code(&rng.to.as_ref().unwrap());
 
         let Pat::Ident(identifier) = &i.pat else {
-            panic!("unsupported variable binding in for loop syntax: {}", rebuild_code(&i.pat));
+            parsing_error!(i.pat, "unsupported variable binding in for loop syntax. Expected `for <var_name> in <range>");
         };
         let identifier_name = Self::new().apply(|p| p.visit_ident(&identifier.ident)).code;
 
@@ -97,7 +105,12 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
     fn visit_stmt(&mut self, i: &'ast syn::Stmt) {
         syn::visit::visit_stmt(self, i);
-        //self.code.push_str(";\n");
+        match &i {
+            Stmt::Local(_) | Stmt::Semi(_, _) => {
+                self.code.push_str(";\n");
+            }
+            _ => {}
+        }
     }
 
     fn visit_expr_binary(&mut self, i: &'ast syn::ExprBinary) {
@@ -124,8 +137,6 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         self.code.push_str(" = ");
 
         self.visit_expr(&i.right);
-
-        self.code.push_str(";\n");
     }
 
     fn visit_path(&mut self, i: &'ast syn::Path) {
