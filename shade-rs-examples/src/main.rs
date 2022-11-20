@@ -59,6 +59,26 @@ fn fragment() -> &'static str {
         y += 1.0;
     }
 
+    if 1 > 0 {
+        2;
+    }
+
+    if 1 > 0 {
+        2;
+    } else {
+        3;
+    }
+
+    if 1 > 0 {
+        2;
+    } else if 3 > 0 {
+        4;
+    } else if 5 > 0 {
+        6;
+    } else {
+        7;
+    }
+
     call();
 
     x += x;

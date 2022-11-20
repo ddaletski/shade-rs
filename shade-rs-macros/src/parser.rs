@@ -1,14 +1,11 @@
 use crate::code_utils::{rebuild_code, Indentable};
 use crate::convenience_wrap::ConvenienceWrap;
 use crate::mapper::Mapper;
-use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{Expr, ItemFn, Pat, Stmt, Type};
 
-pub struct ShaderFnParser {
-    pub code: String,
-}
+const INDENT_WIDTH: usize = 4;
 
 macro_rules! parsing_error {
     ($tree:expr, $($fmt_args:expr),+) => {
@@ -19,15 +16,18 @@ macro_rules! parsing_error {
     };
 }
 
+pub struct ShaderFnParser {
+    pub code: String,
+}
+
 impl ConvenienceWrap for ShaderFnParser {}
 
 impl<'ast> Visit<'ast> for ShaderFnParser {
     fn visit_item_fn(&mut self, i: &'ast ItemFn) {
         let shader_code = Self::new().apply(|p| p.visit_block(&i.block)).code;
 
-        self.code.push_str("int main() {\n");
-        self.code.push_str(&shader_code.reindent(4));
-        self.code.push_str("\n}");
+        self.code.push_str("int main()\n");
+        self.code.push_str(&shader_code);
     }
 
     fn visit_local(&mut self, i: &'ast syn::Local) {
@@ -92,14 +92,41 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
         let loop_body = Self::new().apply(|p| p.visit_block(&i.body)).code;
 
-        let code = format!(
-            r#"
-                for (int {identifier_name} = {left}; {identifier_name} < {right}; ++{identifier_name}) {{
-                    {loop_body}
-                }}
-            "#
-        ).remove_indent();
+        let code = format!("for (int {identifier_name} = {left}; {identifier_name} < {right}; ++{identifier_name}) {loop_body}");
         self.code.push_str(&code);
+        self.code.push_str("\n");
+    }
+
+    fn visit_block(&mut self, i: &'ast syn::Block) {
+        self.code.push_str("{\n");
+
+        let block_code = Self::new()
+            .apply(|parser| {
+                for stmt in &i.stmts {
+                    parser.visit_stmt(&stmt);
+                }
+            })
+            .code
+            .reindent(INDENT_WIDTH);
+
+        self.code.push_str(&block_code);
+
+        self.code.push_str("\n}");
+    }
+
+
+    fn visit_expr_if(&mut self, i: &'ast syn::ExprIf) {
+        self.code.push_str("if (");
+        self.visit_expr(&i.cond);
+        self.code.push_str(") ");
+        self.visit_block(&i.then_branch);
+
+        if let Some((_, else_branch)) = &i.else_branch {
+            self.code.push_str(" else ");
+            self.visit_expr(else_branch);
+            //self.code.push_str("");
+        }
+
         self.code.push_str("\n");
     }
 
@@ -116,19 +143,15 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
     fn visit_expr_binary(&mut self, i: &'ast syn::ExprBinary) {
         self.visit_expr(&i.left);
 
+        self.code.push_str(" ");
         self.visit_bin_op(&i.op);
+        self.code.push_str(" ");
 
         self.visit_expr(&i.right);
     }
 
     fn visit_bin_op(&mut self, i: &'ast syn::BinOp) {
-        let op_str: String = i
-            .to_token_stream()
-            .into_iter()
-            .map(|token| token.to_string())
-            .collect();
-
-        self.code.push_str(&format!(" {} ", op_str));
+        self.code.push_str(&rebuild_code(&i));
     }
 
     fn visit_expr_assign(&mut self, i: &'ast syn::ExprAssign) {
@@ -138,6 +161,17 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
         self.visit_expr(&i.right);
     }
+
+    fn visit_expr_assign_op(&mut self, i: &'ast syn::ExprAssignOp) {
+        self.visit_expr(&i.left);
+
+        self.code.push_str(" ");
+        self.code.push_str(&rebuild_code(&i.op));
+        self.code.push_str(" ");
+
+        self.visit_expr(&i.right);
+    }
+
 
     fn visit_path(&mut self, i: &'ast syn::Path) {
         let rust_name = i.segments.last().unwrap().ident.to_string();
@@ -153,8 +187,8 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         self.code.push_str(glsl_name);
     }
 
-    fn visit_lit_float(&mut self, i: &'ast syn::LitFloat) {
-        self.code.push_str(&i.to_string());
+    fn visit_expr_lit(&mut self, i: &'ast syn::ExprLit) {
+        self.code.push_str(&rebuild_code(&i.lit));
     }
 }
 
