@@ -12,7 +12,7 @@ macro_rules! parsing_error {
         let msg = format!($($fmt_args),*);
         let span = $tree.span().unwrap();
         span.error(msg).emit();
-        unreachable!();
+        unreachable!(); // for unstructuring let to see that this function always panics
     };
 }
 
@@ -114,7 +114,6 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         self.code.push_str("\n}");
     }
 
-
     fn visit_expr_if(&mut self, i: &'ast syn::ExprIf) {
         self.code.push_str("if (");
         self.visit_expr(&i.cond);
@@ -171,7 +170,6 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
         self.visit_expr(&i.right);
     }
-
 
     fn visit_path(&mut self, i: &'ast syn::Path) {
         let rust_name = i.segments.last().unwrap().ident.to_string();

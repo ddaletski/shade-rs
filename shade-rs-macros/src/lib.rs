@@ -5,6 +5,7 @@ mod code_utils;
 mod convenience_wrap;
 mod mapper;
 mod parser;
+mod types;
 
 use parser::ShaderFnParser;
 use proc_macro::TokenStream;
@@ -64,60 +65,7 @@ pub fn module(_attr: TokenStream, program: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         mod #mod_name {
-            use std::ops::{Add, AddAssign};
-            use shade_rs::fragment_shader;
-
-            type Scalar<T, const N: usize> = [T; N];
-
-            #[derive(Debug, Clone, Copy)]
-            pub struct Float4(Scalar<f32, 4>);
-            impl From<Scalar<f32, 4>> for Float4 {
-                fn from(val: Scalar<f32, 4>) -> Self {
-                    Self(val)
-                }
-            }
-
-            pub type Float = f32;
-            pub type Int = i32;
-
-            // TODO: better cast alternative
-            // TODO: generate this kind of functions
-            fn int_to_float(i: Int) -> Float {
-                i as Float
-            }
-
-            pub fn float4(x: f32, y: f32, z: f32, w: f32) -> Float4 {
-                [x, y, z, w].into()
-            }
-
-            pub fn float(x: f32) -> Float {
-                x
-            }
-
-
-            pub fn sin(val: Float) -> Float {
-                val
-            }
-
-            impl AddAssign for Float4 {
-                fn add_assign(&mut self, rhs: Self) {
-                    self.0[0] += rhs.0[0];
-                    self.0[1] += rhs.0[1];
-                    self.0[2] += rhs.0[2];
-                    self.0[3] += rhs.0[3];
-                }
-            }
-
-            impl Add for Float4 {
-                type Output = Self;
-
-                fn add(self, rhs: Self) -> Self::Output {
-                    let mut result = self;
-                    result += rhs;
-                    result
-                }
-            }
-
+            use shade_rs::*;
             #(#mod_items)*
         }
     };

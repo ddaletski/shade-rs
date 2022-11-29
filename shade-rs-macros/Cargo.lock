@@ -21,10 +21,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "shade-rs"
+name = "shade-rs-core"
+version = "0.1.0"
+
+[[package]]
+name = "shade-rs-macros"
 version = "0.1.0"
 dependencies = [
  "quote",
+ "shade-rs-core",
  "syn",
 ]
 
