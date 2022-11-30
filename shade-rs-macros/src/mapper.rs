@@ -1,27 +1,29 @@
 pub struct Mapper {}
 
 impl Mapper {
-    pub fn translate_type(rust_type: &str) -> &'static str {
+    pub fn translate_type(rust_type: &str) -> String {
         match rust_type {
             "Int" => "int",
             "Float" => "float",
             "Float2" => "vec2",
             "Float3" => "vec3",
             "Float4" => "vec4",
-            _ => unreachable!(),
+            t => panic!("unknown type: {}", t),
         }
+        .to_owned()
     }
 
-    pub fn translate_fun(rust_fun: &str) -> Option<&'static str> {
+    pub fn translate_fun(rust_fun: &str) -> String {
         match rust_fun {
-            "float2" => Some("vec2"),
-            "float3" => Some("vec3"),
-            "float4" => Some("vec4"),
-            "r_mut" => Some("r"),
-            "g_mut" => Some("g"),
-            "b_mut" => Some("b"),
-            "a_mut" => Some("a"),
-            _ => None,
+            "float2" => "vec2",
+            "float3" => "vec3",
+            "float4" => "vec4",
+            "r_mut" => "r",
+            "g_mut" => "g",
+            "b_mut" => "b",
+            "a_mut" => "a",
+            x => x,
         }
+        .to_owned()
     }
 }

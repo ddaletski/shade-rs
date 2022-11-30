@@ -53,7 +53,7 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         if let Type::Path(path) = &i {
             let rust_type = path.path.segments.last().unwrap().ident.to_string();
             let glsl_type = Mapper::translate_type(&rust_type);
-            self.code.push_str(glsl_type);
+            self.code.push_str(&glsl_type);
         } else {
             parsing_error!(i, "unknown variable type");
         }
@@ -209,16 +209,16 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
     fn visit_path(&mut self, i: &'ast syn::Path) {
         let rust_name = i.segments.last().unwrap().ident.to_string();
-        let glsl_name = Mapper::translate_fun(&rust_name).unwrap_or(&rust_name);
+        let glsl_name = Mapper::translate_fun(&rust_name);
 
-        self.code.push_str(glsl_name);
+        self.code.push_str(&glsl_name);
     }
 
     fn visit_ident(&mut self, i: &'ast syn::Ident) {
         let rust_name = i.to_string();
-        let glsl_name = Mapper::translate_fun(&rust_name).unwrap_or(&rust_name);
+        let glsl_name = Mapper::translate_fun(&rust_name);
 
-        self.code.push_str(glsl_name);
+        self.code.push_str(&glsl_name);
     }
 
     fn visit_expr_lit(&mut self, i: &'ast syn::ExprLit) {
