@@ -171,6 +171,42 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         self.visit_expr(&i.right);
     }
 
+    fn visit_expr_unary(&mut self, i: &'ast syn::ExprUnary) {
+        match i.op {
+            syn::UnOp::Deref(_) => {}
+            syn::UnOp::Not(_) => self.code.push_str("!"),
+            syn::UnOp::Neg(_) => self.code.push_str("-"),
+        }
+        self.visit_expr(&i.expr);
+    }
+
+    fn visit_expr_method_call(&mut self, i: &'ast syn::ExprMethodCall) {
+        self.visit_expr(&i.receiver);
+        self.code.push_str(".");
+
+        self.visit_ident(&i.method);
+    }
+
+    fn visit_expr_field(&mut self, i: &'ast syn::ExprField) {
+        self.visit_expr(&i.base);
+        self.code.push_str(".");
+        match &i.member {
+            syn::Member::Named(ident) => {
+                self.visit_ident(ident);
+            }
+            syn::Member::Unnamed(idx) => {
+                self.code.push_str(&format!("{}", idx.index));
+            }
+        }
+    }
+
+    fn visit_expr_index(&mut self, i: &'ast syn::ExprIndex) {
+        self.visit_expr(&i.expr);
+        self.code.push_str("[");
+        self.visit_expr(&i.index);
+        self.code.push_str("]");
+    }
+
     fn visit_path(&mut self, i: &'ast syn::Path) {
         let rust_name = i.segments.last().unwrap().ident.to_string();
         let glsl_name = Mapper::translate_fun(&rust_name).unwrap_or(&rust_name);

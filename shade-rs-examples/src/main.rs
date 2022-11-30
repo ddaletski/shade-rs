@@ -1,7 +1,7 @@
 #[shade_rs::module]
 mod shaders {
     #[fragment_shader]
-    pub fn Fragment(
+    pub fn fragment(
         #[input] input_color: Float4,
         #[output] output_color: &mut Float4,
         #[uniform(location = 0)] color_shift: Float,
@@ -11,9 +11,9 @@ mod shaders {
 
         for i in 0..n_iterations {
             if i % 2 == 0 {
-                *color.red_mut() += color_shift;
+                *color.r_mut() += color_shift;
             } else {
-                *color.blue_mut() += color_shift;
+                *color.b_mut() += color_shift;
             }
         }
 
@@ -24,10 +24,11 @@ mod shaders {
 use shade_rs::*;
 
 fn main() {
-    let code = shaders::Fragment::code();
+    let code = shaders::fragment::code();
     println!("{}", code);
 
     let input = float4(0.0, 0.0, 0.0, 255.0);
     let mut output = float4(0.0, 0.0, 0.0, 0.0);
-    shaders::Fragment::call(input, &mut output, 0.01, 5);
+    shaders::fragment::call(input, &mut output, 0.01, 2);
+    assert_eq!(output, float4(0.01, 0.0, 0.01, 255.0));
 }
