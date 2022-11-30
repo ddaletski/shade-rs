@@ -7,12 +7,18 @@ mod mapper;
 mod parser;
 mod types;
 
+use syn::spanned::Spanned;
 use parser::ShaderFnParser;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::visit::Visit;
 use syn::ItemFn;
 use syn::ItemMod;
+
+struct Uniform {
+    location: Option<i32>,
+    name: String,
+}
 
 #[proc_macro_attribute]
 pub fn fragment_shader(_attr: TokenStream, function: TokenStream) -> TokenStream {
@@ -28,7 +34,7 @@ pub fn fragment_shader(_attr: TokenStream, function: TokenStream) -> TokenStream
     // TODO: process uniforms
     for arg in &mut function.sig.inputs {
         let syn::FnArg::Typed(arg) = arg else {
-            panic!();
+            shade_rs_core::parsing_error!(arg, "unsupported function argument kind");
         };
 
         arg.attrs.clear();

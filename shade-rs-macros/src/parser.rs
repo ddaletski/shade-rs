@@ -7,15 +7,6 @@ use syn::{Expr, ItemFn, Pat, Stmt, Type};
 
 const INDENT_WIDTH: usize = 4;
 
-macro_rules! parsing_error {
-    ($tree:expr, $($fmt_args:expr),+) => {
-        let msg = format!($($fmt_args),*);
-        let span = $tree.span().unwrap();
-        span.error(msg).emit();
-        unreachable!(); // for unstructuring let to see that this function always panics
-    };
-}
-
 pub struct ShaderFnParser {
     pub code: String,
 }
@@ -37,7 +28,7 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
             self.visit_pat(&type_pattern.pat);
         } else {
-            parsing_error!(
+            shade_rs_core::parsing_error!(
                 i.pat,
                 "Unsupported variable initializtion syntax. Should be 'let [mut] var_name: VarType = ...'"
             );
@@ -55,7 +46,7 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
             let glsl_type = Mapper::translate_type(&rust_type);
             self.code.push_str(&glsl_type);
         } else {
-            parsing_error!(i, "unknown variable type");
+            shade_rs_core::parsing_error!(i, "unknown variable type");
         }
     }
 
@@ -79,14 +70,14 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
     fn visit_expr_for_loop(&mut self, i: &'ast syn::ExprForLoop) {
         let Expr::Range(rng) = &*i.expr else {
-            parsing_error!(i.expr, "unsupported loop iterator. Expected range object (a..b | a..=b)");
+            shade_rs_core::parsing_error!(i.expr, "unsupported loop iterator. Expected range object (a..b | a..=b)");
         };
 
         let left = rebuild_code(&rng.from.as_ref().unwrap());
         let right = rebuild_code(&rng.to.as_ref().unwrap());
 
         let Pat::Ident(identifier) = &i.pat else {
-            parsing_error!(i.pat, "unsupported variable binding in for loop syntax. Expected `for <var_name> in <range>");
+            shade_rs_core::parsing_error!(i.pat, "unsupported variable binding in for loop syntax. Expected `for <var_name> in <range>");
         };
         let identifier_name = Self::new().apply(|p| p.visit_ident(&identifier.ident)).code;
 
