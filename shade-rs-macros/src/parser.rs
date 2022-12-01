@@ -1,6 +1,7 @@
 use crate::code_utils::{rebuild_code, Indentable};
 use crate::convenience_wrap::ConvenienceWrap;
 use crate::mapper::Mapper;
+use shade_rs_core::parsing_error;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{Expr, ItemFn, Pat, Stmt, Type};
@@ -28,7 +29,7 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
             self.visit_pat(&type_pattern.pat);
         } else {
-            shade_rs_core::parsing_error!(
+            parsing_error!(
                 i.pat,
                 "Unsupported variable initializtion syntax. Should be 'let [mut] var_name: VarType = ...'"
             );
@@ -41,12 +42,16 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
     }
 
     fn visit_type(&mut self, i: &'ast Type) {
-        if let Type::Path(path) = &i {
-            let rust_type = path.path.segments.last().unwrap().ident.to_string();
-            let glsl_type = Mapper::translate_type(&rust_type);
-            self.code.push_str(&glsl_type);
-        } else {
-            shade_rs_core::parsing_error!(i, "unknown variable type");
+        match i {
+            Type::Path(path) => {
+                let rust_type = path.path.segments.last().unwrap().ident.to_string();
+                let glsl_type = Mapper::translate_type(&rust_type);
+                self.code.push_str(&glsl_type);
+            },
+            Type::Reference(reference) => {
+                self.visit_type(&reference.elem);
+            },
+            _ => {parsing_error!(i, "unknown variable type"); }
         }
     }
 
@@ -70,14 +75,14 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
 
     fn visit_expr_for_loop(&mut self, i: &'ast syn::ExprForLoop) {
         let Expr::Range(rng) = &*i.expr else {
-            shade_rs_core::parsing_error!(i.expr, "unsupported loop iterator. Expected range object (a..b | a..=b)");
+            parsing_error!(i.expr, "unsupported loop iterator. Expected range object (a..b | a..=b)");
         };
 
         let left = rebuild_code(&rng.from.as_ref().unwrap());
         let right = rebuild_code(&rng.to.as_ref().unwrap());
 
         let Pat::Ident(identifier) = &i.pat else {
-            shade_rs_core::parsing_error!(i.pat, "unsupported variable binding in for loop syntax. Expected `for <var_name> in <range>");
+            parsing_error!(i.pat, "unsupported variable binding in for loop syntax. Expected `for <var_name> in <range>");
         };
         let identifier_name = Self::new().apply(|p| p.visit_ident(&identifier.ident)).code;
 

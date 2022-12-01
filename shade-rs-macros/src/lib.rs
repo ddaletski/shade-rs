@@ -3,22 +3,20 @@
 
 mod code_utils;
 mod convenience_wrap;
+mod global_variables;
 mod mapper;
 mod parser;
 mod types;
 
-use syn::spanned::Spanned;
+use convenience_wrap::ConvenienceWrap;
 use parser::ShaderFnParser;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use shade_rs_core::parsing_error;
+use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::ItemFn;
 use syn::ItemMod;
-
-struct Uniform {
-    location: Option<i32>,
-    name: String,
-}
 
 #[proc_macro_attribute]
 pub fn fragment_shader(_attr: TokenStream, function: TokenStream) -> TokenStream {
@@ -27,18 +25,44 @@ pub fn fragment_shader(_attr: TokenStream, function: TokenStream) -> TokenStream
     let fun_name = format_ident!("{}", function.sig.ident.to_string());
     let block = &function.block;
 
-    let mut code_parser = ShaderFnParser::new();
-    code_parser.visit_item_fn(&function);
-    let code = code_parser.code;
+    let mut code = String::new();
 
-    // TODO: process uniforms
     for arg in &mut function.sig.inputs {
         let syn::FnArg::Typed(arg) = arg else {
-            shade_rs_core::parsing_error!(arg, "unsupported function argument kind");
+            parsing_error!(arg, "unsupported function argument kind");
         };
+
+        if let Some(attr) = arg.attrs.first() {
+            let glob_var = global_variables::parse_global_var(attr);
+
+            if let Some(location) = glob_var.location {
+                code += &format!("layout(location = {location}) ");
+            }
+
+            let kind_str = match glob_var.kind {
+                global_variables::GlobalVariableKind::Uniform => "uniform",
+                global_variables::GlobalVariableKind::Input => "in",
+                global_variables::GlobalVariableKind::Output => "out",
+            };
+
+            let var_name = ShaderFnParser::new()
+                .apply(|parser| parser.visit_pat(&arg.pat))
+                .code;
+
+            let type_str = ShaderFnParser::new()
+                .apply(|parser| parser.visit_type(&arg.ty))
+                .code;
+
+            code += &format!("{kind_str} {type_str} {var_name};\n");
+        }
 
         arg.attrs.clear();
     }
+
+    code += "\n";
+    code += &ShaderFnParser::new()
+        .apply(|parser| parser.visit_item_fn(&function))
+        .code;
 
     let args = function.sig.inputs;
 
