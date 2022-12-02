@@ -1,7 +1,9 @@
 mod dtypes;
 mod parsing_utils;
 
-pub use dtypes::*;
+pub use dtypes::float4::*;
+pub use dtypes::numeric::*;
+pub use dtypes::vector::*;
 pub use parsing_utils::*;
 
 fn itof(i: Int) -> Float {

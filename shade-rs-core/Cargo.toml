@@ -6,4 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+shade-rs-core-macros = { path = "../shade-rs-core-macros" }
 derive_more = "0.99.17"
+rstest = "0.16.0"
