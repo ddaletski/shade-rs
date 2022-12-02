@@ -1,3 +1,4 @@
+use super::numeric::Float;
 use super::float2::Float2;
 use super::vector::Vector;
 
@@ -13,5 +14,5 @@ use super::vector::Vector;
     derive_more::IndexMut,
 )]
 #[from(forward)]
-#[shade_rs_core_macros::impl_rgba(f32, 3)]
+#[shade_rs_core_macros::impl_color_permutations(rgb)]
 pub struct Float3(Vector<f32, 3>);

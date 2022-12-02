@@ -3,7 +3,8 @@
 
 use std::collections::HashMap;
 
-use proc_macro::{token_stream, TokenStream};
+use itertools::Itertools;
+use proc_macro::{token_stream, Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
@@ -23,165 +24,97 @@ macro_rules! parsing_error {
     };
 }
 
-#[derive(Debug)]
-struct VectorImplMetadata {
-    elem_type_token: syn::TypePath,
-    vec_len_token: syn::LitInt,
-}
+fn cartesian_power<T: Clone>(vec: Vec<T>, power: usize) -> Vec<Vec<T>> {
+    let mut result: Vec<Vec<T>> = vec![vec![]];
 
-impl VectorImplMetadata {
-    fn len(&self) -> usize {
-        self.vec_len_token.base10_parse().unwrap()
+    for _ in 0..power {
+        result = itertools::iproduct!(result, vec.clone())
+            .map(|(mut res, next_vec)| {
+                res.push(next_vec);
+                res
+            })
+            .collect();
     }
 
-    fn type_name_base(&self) -> &'static str {
-        let type_name = self
-            .elem_type_token
-            .path
-            .segments
-            .last()
-            .unwrap()
-            .ident
-            .to_string();
-
-        match type_name.as_str() {
-            "f32" => "Float",
-            "i32" => "Int",
-            "u32" => "UInt",
-            "bool" => "Bool",
-            _ => parsing_error!(
-                self.elem_type_token,
-                "unknown item type for vector: {}",
-                type_name
-            ),
-        }
-    }
+    result
 }
 
-impl Parse for VectorImplMetadata {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let elem_type: syn::TypePath = input.parse()?;
-        let _: syn::Token![,] = input.parse()?;
-        let size: syn::LitInt = input.parse()?;
+fn impl_color_permutations_inner(struct_item: &syn::ItemStruct, colors: &str) -> TokenStream {
+    let mut impl_streams = vec![];
 
-        Ok(VectorImplMetadata {
-            elem_type_token: elem_type,
-            vec_len_token: size,
-        })
-    }
-}
+    let item_type_name = {
+        let mut struct_name = struct_item.ident.to_string();
+        struct_name.pop(); // pop vector length to get vec. element type name
+        struct_name
+    };
 
-#[proc_macro_attribute]
-pub fn impl_rgba(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let vector_type = parse_macro_input!(attr as VectorImplMetadata);
-    let vector_type_name_base = vector_type.type_name_base();
+    let item_type = format_ident!("{}", item_type_name);
 
-    let elem_type = &vector_type.elem_type_token;
-    let colors_count = vector_type.len();
-
-    let struct_def = syn::parse::<ItemStruct>(item).unwrap();
-
-    let struct_name = &struct_def.ident;
-
-    let colors: Vec<syn::Ident> = ["r", "g", "b", "a"][..colors_count]
+    let colors: Vec<syn::Ident> = colors
+        .chars()
         .into_iter()
         .map(|s| format_ident!("{}", s))
         .collect();
 
-    let mut impl_streams = vec![];
-
-    let color_iter = || colors.iter().enumerate();
-
-    color_iter().for_each(|(idx, color)| {
+    colors.iter().enumerate().for_each(|(idx, color)| {
         let set_color = format_ident!("set_{}", color);
 
         let stream = quote! {
-            pub fn #color(&self) -> #elem_type {
+            pub fn #color(&self) -> #item_type {
                 self[#idx]
             }
 
-            pub fn #set_color(&mut self, value: #elem_type) {
+            pub fn #set_color(&mut self, value: #item_type) {
                 self[#idx] = value;
             }
         };
         impl_streams.push(stream);
     });
 
-    if colors_count >= 2 {
-        itertools::iproduct!(color_iter(), color_iter()).for_each(
-            |((idx1, color1), (idx2, color2))| {
-                let view_type = format_ident!("{}{}", vector_type_name_base, "2");
-                let color_composed = format_ident!("{}{}", color1, color2);
-                let set_color_composed = format_ident!("set_{}", color_composed);
+    let combinations: Vec<Vec<(usize, &syn::Ident)>> = (2..=colors.len())
+        .flat_map(|combination_len| {
+            cartesian_power(colors.iter().enumerate().collect(), combination_len)
+        })
+        .collect();
 
-                let stream = quote! {
-                    pub fn #color_composed(&self) -> #view_type {
-                        [self[#idx1], self[#idx2]].into()
-                    }
+    combinations.into_iter().for_each(|combination| {
+        let colors_permutation = combination.iter().map(|(_, color)| color);
+        let indices_permutation: Vec<usize> = combination.iter().map(|(index, _)| *index).collect();
+        let indices_ordered = 0..indices_permutation.len();
 
-                    pub fn #set_color_composed(&mut self, value: #view_type) {
-                        self[#idx1] = value[0];
-                        self[#idx2] = value[1];
-                    }
-                };
-                impl_streams.push(stream);
-            },
-        );
-    }
+        let slice_name: String = colors_permutation.map(|ident| ident.to_string()).collect();
+        let slice_type = format_ident!("{}{}", item_type_name, format!("{}", combination.len()));
 
-    if colors_count >= 3 {
-        itertools::iproduct!(color_iter(), color_iter(), color_iter()).for_each(
-            |((idx1, color1), (idx2, color2), (idx3, color3))| {
-                let view_type = format_ident!("{}{}", vector_type_name_base, "3");
-                let color_composed = format_ident!("{}{}{}", color1, color2, color3);
-                let set_color_composed = format_ident!("set_{}", color_composed);
+        let slice_token = format_ident!("{}", slice_name);
+        let set_slice_token = format_ident!("set_{}", slice_token);
 
-                let stream = quote! {
-                    pub fn #color_composed(&self) -> #view_type {
-                        [self[#idx1], self[#idx2], self[#idx3]].into()
-                    }
+        let stream = quote! {
+            pub fn #slice_token(&self) -> #slice_type {
+                [#(self[#indices_permutation]),*].into()
+            }
 
-                    pub fn #set_color_composed(&mut self, value: #view_type) {
-                        self[#idx1] = value[0];
-                        self[#idx2] = value[1];
-                        self[#idx3] = value[2];
-                    }
-                };
-                impl_streams.push(stream);
-            },
-        );
-    }
+            pub fn #set_slice_token(&mut self, value: #slice_type) {
+                #(self[#indices_permutation] = value[#indices_ordered];)*
+            }
+        };
+        impl_streams.push(stream);
+    });
 
-    if colors_count >= 4 {
-        itertools::iproduct!(color_iter(), color_iter(), color_iter(), color_iter()).for_each(
-            |((idx1, color1), (idx2, color2), (idx3, color3), (idx4, color4))| {
-                let view_type = format_ident!("{}{}", vector_type_name_base, "4");
-                let color_composed = format_ident!("{}{}{}{}", color1, color2, color3, color4);
-                let set_color_composed = format_ident!("set_{}", color_composed);
-
-                let stream = quote! {
-                    pub fn #color_composed(&self) -> #view_type {
-                        [self[#idx1], self[#idx2], self[#idx3], self[#idx4]].into()
-                    }
-
-                    pub fn #set_color_composed(&mut self, value: #view_type) {
-                        self[#idx1] = value[0];
-                        self[#idx2] = value[1];
-                        self[#idx3] = value[2];
-                        self[#idx4] = value[3];
-                    }
-                };
-                impl_streams.push(stream);
-            },
-        );
-    }
-
+    let struct_name = &struct_item.ident;
     quote! {
-        #struct_def
+        #struct_item
 
         impl #struct_name {
             #(#impl_streams)*
         }
     }
     .into()
+}
+
+#[proc_macro_attribute]
+pub fn impl_color_permutations(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let colors = parse_macro_input!(attr as syn::Ident).to_string();
+    let struct_def = syn::parse::<ItemStruct>(item.clone()).unwrap();
+
+    impl_color_permutations_inner(&struct_def, &colors)
 }

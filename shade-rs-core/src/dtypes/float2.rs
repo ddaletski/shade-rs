@@ -1,3 +1,4 @@
+use super::numeric::Float;
 use super::vector::Vector;
 
 #[derive(
@@ -12,5 +13,5 @@ use super::vector::Vector;
     derive_more::IndexMut,
 )]
 #[from(forward)]
-#[shade_rs_core_macros::impl_rgba(f32, 2)]
+#[shade_rs_core_macros::impl_color_permutations(rg)]
 pub struct Float2(Vector<f32, 2>);
