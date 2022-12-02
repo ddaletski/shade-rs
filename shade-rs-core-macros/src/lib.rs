@@ -93,9 +93,15 @@ pub fn impl_rgba(attr: TokenStream, item: TokenStream) -> TokenStream {
     let color_iter = || colors.iter().enumerate();
 
     color_iter().for_each(|(idx, color)| {
-        let stream: syn::ItemFn = parse_quote! {
+        let set_color = format_ident!("set_{}", color);
+
+        let stream = quote! {
             pub fn #color(&self) -> #elem_type {
                 self[#idx]
+            }
+
+            pub fn #set_color(&mut self, value: #elem_type) {
+                self[#idx] = value;
             }
         };
         impl_streams.push(stream);
@@ -104,12 +110,18 @@ pub fn impl_rgba(attr: TokenStream, item: TokenStream) -> TokenStream {
     if colors_count >= 2 {
         itertools::iproduct!(color_iter(), color_iter()).for_each(
             |((idx1, color1), (idx2, color2))| {
-                let color_composed = format_ident!("{}{}", color1, color2);
                 let view_type = format_ident!("{}{}", vector_type_name_base, "2");
+                let color_composed = format_ident!("{}{}", color1, color2);
+                let set_color_composed = format_ident!("set_{}", color_composed);
 
-                let stream: syn::ItemFn = parse_quote! {
+                let stream = quote! {
                     pub fn #color_composed(&self) -> #view_type {
                         [self[#idx1], self[#idx2]].into()
+                    }
+
+                    pub fn #set_color_composed(&mut self, value: #view_type) {
+                        self[#idx1] = value[0];
+                        self[#idx2] = value[1];
                     }
                 };
                 impl_streams.push(stream);
@@ -120,12 +132,19 @@ pub fn impl_rgba(attr: TokenStream, item: TokenStream) -> TokenStream {
     if colors_count >= 3 {
         itertools::iproduct!(color_iter(), color_iter(), color_iter()).for_each(
             |((idx1, color1), (idx2, color2), (idx3, color3))| {
-                let color_composed = format_ident!("{}{}{}", color1, color2, color3);
                 let view_type = format_ident!("{}{}", vector_type_name_base, "3");
+                let color_composed = format_ident!("{}{}{}", color1, color2, color3);
+                let set_color_composed = format_ident!("set_{}", color_composed);
 
-                let stream: syn::ItemFn = parse_quote! {
+                let stream = quote! {
                     pub fn #color_composed(&self) -> #view_type {
                         [self[#idx1], self[#idx2], self[#idx3]].into()
+                    }
+
+                    pub fn #set_color_composed(&mut self, value: #view_type) {
+                        self[#idx1] = value[0];
+                        self[#idx2] = value[1];
+                        self[#idx3] = value[2];
                     }
                 };
                 impl_streams.push(stream);
@@ -136,12 +155,20 @@ pub fn impl_rgba(attr: TokenStream, item: TokenStream) -> TokenStream {
     if colors_count >= 4 {
         itertools::iproduct!(color_iter(), color_iter(), color_iter(), color_iter()).for_each(
             |((idx1, color1), (idx2, color2), (idx3, color3), (idx4, color4))| {
-                let color_composed = format_ident!("{}{}{}{}", color1, color2, color3, color4);
                 let view_type = format_ident!("{}{}", vector_type_name_base, "4");
+                let color_composed = format_ident!("{}{}{}{}", color1, color2, color3, color4);
+                let set_color_composed = format_ident!("set_{}", color_composed);
 
-                let stream: syn::ItemFn = parse_quote! {
+                let stream = quote! {
                     pub fn #color_composed(&self) -> #view_type {
                         [self[#idx1], self[#idx2], self[#idx3], self[#idx4]].into()
+                    }
+
+                    pub fn #set_color_composed(&mut self, value: #view_type) {
+                        self[#idx1] = value[0];
+                        self[#idx2] = value[1];
+                        self[#idx3] = value[2];
+                        self[#idx4] = value[3];
                     }
                 };
                 impl_streams.push(stream);

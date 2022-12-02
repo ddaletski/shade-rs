@@ -30,5 +30,5 @@ fn main() {
     let input = float4(0.0, 0.0, 0.0, 255.0);
     let mut output = float4(0.0, 0.0, 0.0, 0.0);
     shaders::fragment::call(input, &mut output, 0.01, 2);
-    assert_eq!(output, float4(0.01, 0.0, 0.01, 255.0));
+    assert_eq!(output.rgba(), float4(0.01, 0.0, 0.01, 255.0));
 }
