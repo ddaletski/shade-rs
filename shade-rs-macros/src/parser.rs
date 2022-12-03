@@ -180,7 +180,22 @@ impl<'ast> Visit<'ast> for ShaderFnParser {
         self.visit_expr(&i.receiver);
         self.code.push_str(".");
 
-        self.visit_ident(&i.method);
+        let method_name = i.method.to_string();
+
+        if method_name.starts_with("set_") {
+            let slice_name = method_name.strip_prefix("set_").unwrap();
+            self.code.push_str(slice_name);
+            self.code.push_str(" = ");
+
+            for arg in i.args.pairs() {
+                self.visit_expr(arg.value());
+                if arg.punct().is_some() {
+                    self.code.push_str(", ");
+                }
+            }
+        } else {
+            self.code.push_str(&method_name);
+        }
     }
 
     fn visit_expr_field(&mut self, i: &'ast syn::ExprField) {

@@ -15,14 +15,14 @@ where
         Self { data: [value; N] }
     }
 
-    pub fn arr(&self) -> &[T; N] {
+    pub fn data(&self) -> &[T; N] {
         &self.data
     }
 
-    pub fn slice<const K: usize>(&self) -> Vector<T, K> {
-        let mut data = [self[0]; K];
+    pub fn slice<const START_IDX: usize, const LEN: usize>(&self) -> Vector<T, LEN> {
+        let mut data = [self[0]; LEN];
 
-        data.copy_from_slice(&self.data[..K]);
+        data.copy_from_slice(&self.data[START_IDX..START_IDX + LEN]);
 
         Vector { data }
     }
@@ -117,26 +117,38 @@ mod test {
     }
 
     #[rstest]
-    fn valid_size_slice_works(ones: FourInts) {
-        let ones_4 = ones.slice::<4>();
-        assert_eq!(ones_4.data, [1; 4]);
+    fn valid_size_slice_works() {
+        let vector: Vector<i32, 3> = [0, 1, 2].into();
 
-        let ones_3 = ones.slice::<3>();
-        assert_eq!(ones_3.data, [1; 3]);
+        let ones_2 = vector.slice::<0, 2>();
+        assert_eq!(ones_2.data, [0, 1]);
+        let ones_2 = vector.slice::<1, 2>();
+        assert_eq!(ones_2.data, [1, 2]);
 
-        let ones_2 = ones.slice::<2>();
-        assert_eq!(ones_2.data, [1; 2]);
+        let ones_1 = vector.slice::<0, 1>();
+        assert_eq!(ones_1.data, [0]);
+        let ones_1 = vector.slice::<1, 1>();
+        assert_eq!(ones_1.data, [1]);
+        let ones_1 = vector.slice::<2, 1>();
+        assert_eq!(ones_1.data, [2]);
 
-        let ones_1 = ones.slice::<1>();
-        assert_eq!(ones_1.data, [1; 1]);
-
-        let empty = ones.slice::<0>();
+        let empty = vector.slice::<0, 0>();
+        assert_eq!(empty.data, []);
+        let empty = vector.slice::<1, 0>();
+        assert_eq!(empty.data, []);
+        let empty = vector.slice::<2, 0>();
         assert_eq!(empty.data, []);
     }
 
     #[rstest]
     #[should_panic]
     fn larger_slice_panics(ones: FourInts) {
-        ones.slice::<5>();
+        ones.slice::<0, 5>();
+    }
+
+    #[rstest]
+    #[should_panic]
+    fn out_of_bounds_slice_panics(ones: FourInts) {
+        ones.slice::<3, 2>();
     }
 }
