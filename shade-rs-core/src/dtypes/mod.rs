@@ -1,5 +1,7 @@
-pub mod vector;
 pub mod numeric;
-pub mod float2;
-pub mod float3;
-pub mod float4;
+pub mod vector;
+
+pub mod bool_n;
+pub mod float_n;
+pub mod int_n;
+pub mod uint_n;
